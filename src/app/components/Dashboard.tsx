@@ -14,6 +14,8 @@ function formatMs(ms: number) {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+//#hola mundo
+
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
