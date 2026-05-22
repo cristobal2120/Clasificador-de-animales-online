@@ -33,12 +33,18 @@ export async function login(emailOrUsername: string, password: string): Promise<
       };
     }
     return { success: true, user: profile };
-  } catch (e: any) {
-    const code = String(e?.code || "");
-    if (code.includes("auth/invalid-credential") || code.includes("auth/wrong-password")) {
-      return { success: false, error: "Credenciales incorrectas" };
+  } catch (e: unknown) {
+    const code = String((e as { code?: string })?.code || "");
+    const message = String((e as { message?: string })?.message || "");
+    if (code.includes("auth/invalid-credential") || code.includes("auth/wrong-password") || code.includes("auth/invalid-login-credentials")) {
+      return { success: false, error: "Email o contraseña incorrectos" };
     }
     if (code.includes("auth/user-not-found")) return { success: false, error: "Usuario no encontrado" };
+    if (code.includes("auth/too-many-requests")) return { success: false, error: "Demasiados intentos. Espera un momento." };
+    if (code.includes("auth/network-request-failed")) return { success: false, error: "Sin conexión. Revisa tu internet." };
+    if (message.includes("offline") || message.includes("not found")) {
+      return { success: false, error: "Firestore no disponible. Revisa la base de datos en Firebase." };
+    }
     return { success: false, error: "Error al iniciar sesión" };
   }
 }

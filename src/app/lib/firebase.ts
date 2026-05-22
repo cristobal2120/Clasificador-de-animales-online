@@ -24,6 +24,12 @@ const firebaseConfig = {
 
 export const firebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
-// Base de datos predeterminada de Firestore "(default)" — no usar el id literal "default"
-export const db = getFirestore(firebaseApp);
+
+// ID de la base en Firebase Console → Firestore (ej. "default" o "(default)")
+const firestoreDatabaseId = (import.meta.env as Record<string, string | undefined>)
+  .VITE_FIREBASE_DATABASE_ID;
+
+export const db = firestoreDatabaseId
+  ? getFirestore(firebaseApp, firestoreDatabaseId)
+  : getFirestore(firebaseApp);
 

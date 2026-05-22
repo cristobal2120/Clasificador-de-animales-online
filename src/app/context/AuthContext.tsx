@@ -55,7 +55,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       } catch (e) {
         console.error("[Auth] onAuthStateChanged error", e);
-        setUserState(null);
+        // Mantener sesión de Auth aunque falle Firestore (perfil local)
+        if (fbUser) {
+          setUserState({
+            id: fbUser.uid,
+            username: fbUser.email?.split("@")[0] ?? "user",
+            email: fbUser.email ?? "",
+            avatar: "👤",
+            createdAt: new Date().toISOString(),
+            role: "user",
+          });
+        } else {
+          setUserState(null);
+        }
         setLoading(false);
       }
     });
