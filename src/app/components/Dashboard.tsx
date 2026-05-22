@@ -67,10 +67,19 @@ export function Dashboard({ onClose, refreshTrigger }: DashboardProps) {
   const [filter, setFilter] = useState<"all" | "success" | "timeout" | "error">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const refresh = async () => {
-    const nextLogs = await getLogs();
-    setLogs(nextLogs);
-    setStats(getStatsFromLogs(nextLogs));
+    try {
+      setLoadError(null);
+      const nextLogs = await getLogs();
+      setLogs(nextLogs);
+      setStats(getStatsFromLogs(nextLogs));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error al leer Firestore";
+      console.error("[Firestore] getLogs failed", e);
+      setLoadError(msg);
+    }
   };
 
   useEffect(() => {
@@ -122,6 +131,12 @@ export function Dashboard({ onClose, refreshTrigger }: DashboardProps) {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="mx-6 mt-4 px-4 py-3 rounded-xl text-sm" style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}>
+          No se pudieron cargar los registros: {loadError}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
         {/* Stats Grid */}

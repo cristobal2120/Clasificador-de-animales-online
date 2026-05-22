@@ -20,13 +20,9 @@ export async function getLogs(): Promise<ScanLog[]> {
   return snap.docs.map((d) => d.data() as ScanLog);
 }
 
-export async function addLog(log: ScanLog): Promise<void> {
-  try {
-    await addDoc(collection(db, COLLECTION), log);
-  } catch (e) {
-    console.error("[Firestore] addLog failed", e);
-    throw e;
-  }
+export async function addLog(log: ScanLog): Promise<string> {
+  const ref = await addDoc(collection(db, COLLECTION), log);
+  return ref.id;
 }
 
 export async function clearLogs(): Promise<void> {

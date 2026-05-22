@@ -81,7 +81,10 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
   });
   const [scanMetrics, setScanMetrics] = useState({ responseMs: 0, commMs: 0, timedOut: false });
   const [savedLog, setSavedLog] = useState<ScanLog | null>(null);
+  const [firestoreDocId, setFirestoreDocId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [showMetricsDetail, setShowMetricsDetail] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -98,6 +101,21 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
     memoryMB: 120 + Math.random() * 80,
   });
 
+  const persistLog = useCallback(async (log: ScanLog) => {
+    setSaveError(null);
+    setFirestoreDocId(null);
+    try {
+      const docId = await addLog(log);
+      setFirestoreDocId(docId);
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "No se pudo guardar en Firestore";
+      console.error("[Firestore] persistLog failed", e);
+      setSaveError(msg);
+      return false;
+    }
+  }, []);
+
   const processImage = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
     const url = URL.createObjectURL(file);
@@ -105,6 +123,8 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
     setCurrentFile(file);
     setPhase("uploading");
     setSavedLog(null);
+    setFirestoreDocId(null);
+    setSaveError(null);
 
     const totalBytes = file.size;
     let uploaded = 0;
@@ -142,9 +162,10 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
         networkSpeedKBps: (file.size / 1024) / (commTime / 1000),
         status: "timeout",
       };
-      void addLog(log);
       setSavedLog(log);
-      if (onScanComplete) onScanComplete();
+      void persistLog(log).then((ok) => {
+        if (ok && onScanComplete) onScanComplete();
+      });
     }, MAX_COMM_TIME_MS);
 
     // Simulate real-time chunked upload
@@ -216,14 +237,15 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
               networkSpeedKBps: (file.size / 1024) / (commTime / 1000),
               status: "success",
             };
-            void addLog(log);
             setSavedLog(log);
-            if (onScanComplete) onScanComplete();
+            void persistLog(log).then((ok) => {
+              if (ok && onScanComplete) onScanComplete();
+            });
           }, 2000 + Math.random() * 500);
         }, 200);
       }
     }, chunkInterval);
-  }, [user, onScanComplete]);
+  }, [user, onScanComplete, persistLog]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -244,6 +266,8 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
     setCurrentFile(null);
     setPrediction(null);
     setSavedLog(null);
+    setFirestoreDocId(null);
+    setSaveError(null);
     setMetrics({ uploadProgress: 0, uploadSpeedKBps: 0, uploadedBytes: 0, totalBytes: 0, elapsedMs: 0, cpuUsage: 0, memoryMB: 0 });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -640,9 +664,19 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                           ))}
                         </div>
                         <div className="px-5 pb-4">
-                          <div className="px-3 py-2 rounded-xl text-xs text-center" style={{ background: "#ECFDF5", color: "#059669", border: "1px solid #A7F3D0" }}>
-                            ✅ Registro guardado en Firestore · ID: {savedLog.id}
-                          </div>
+                          {saveError ? (
+                            <div className="px-3 py-2 rounded-xl text-xs text-center" style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}>
+                              No se guardó en Firestore: {saveError}
+                            </div>
+                          ) : firestoreDocId ? (
+                            <div className="px-3 py-2 rounded-xl text-xs text-center" style={{ background: "#ECFDF5", color: "#059669", border: "1px solid #A7F3D0" }}>
+                              Registro guardado en Firestore · ID: {firestoreDocId}
+                            </div>
+                          ) : (
+                            <div className="px-3 py-2 rounded-xl text-xs text-center text-gray-500" style={{ background: "#F3F4F6", border: "1px solid #E5E7EB" }}>
+                              Guardando en Firestore…
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     )}

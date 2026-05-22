@@ -24,7 +24,6 @@ const firebaseConfig = {
 
 export const firebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
-// If you created a named Firestore database with ID "default" (instead of "(default)"),
-// the SDK must be pointed to that database explicitly.
-export const db = getFirestore(firebaseApp, "default");
+// Base de datos predeterminada de Firestore "(default)" — no usar el id literal "default"
+export const db = getFirestore(firebaseApp);
 
