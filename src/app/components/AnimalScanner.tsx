@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Upload, RefreshCw, CheckCircle2, AlertCircle, Cpu, Clock, Wifi, MemoryStick, ChevronDown, Activity } from "lucide-react";
+import { Upload, RefreshCw, CheckCircle2, Cpu, Clock, Wifi, MemoryStick, ChevronDown, Activity } from "lucide-react";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
@@ -28,28 +28,10 @@ const ANIMAL_DATABASE = [
 
 const MAX_COMM_TIME_MS = 10000;
 
-function getAlternatives(mainIndex: number) {
-  const alternatives = [];
-  const used = new Set([mainIndex]);
-  while (alternatives.length < 2) {
-    const idx = Math.floor(Math.random() * ANIMAL_DATABASE.length);
-    if (!used.has(idx)) {
-      used.add(idx);
-      const base = ANIMAL_DATABASE[idx].confidence;
-      alternatives.push({
-        ...ANIMAL_DATABASE[idx],
-        confidence: Math.max(10, Math.min(50, base * 0.35 + Math.random() * 15)),
-      });
-    }
-  }
-  return alternatives.sort((a, b) => b.confidence - a.confidence);
-}
-
 function simulatePrediction() {
   const mainIndex = Math.floor(Math.random() * ANIMAL_DATABASE.length);
   const main = ANIMAL_DATABASE[mainIndex];
-  const alternatives = getAlternatives(mainIndex);
-  return { main, alternatives };
+  return { main };
 }
 
 type ScanPhase = "idle" | "uploading" | "scanning" | "result" | "timeout";
@@ -594,33 +576,6 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                       <p className="text-gray-700 text-sm" style={{ fontWeight: 600 }}>{prediction.main.category}</p>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Alternatives */}
-              <div className="rounded-3xl p-5" style={{ background: "rgba(255,255,255,0.88)", backdropFilter: "blur(10px)", boxShadow: "0 4px 24px rgba(99,102,241,0.07)" }}>
-                <div className="flex items-center gap-2 mb-4">
-                  <AlertCircle size={16} style={{ color: "#6366F1" }} />
-                  <h3 className="text-gray-600" style={{ fontWeight: 600 }}>Otras posibilidades</h3>
-                </div>
-                <div className="space-y-3">
-                  {prediction.alternatives.map((alt, i) => (
-                    <motion.div key={alt.name} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 + i * 0.15 }} className="flex items-center gap-3">
-                      <span className="text-2xl w-8">{alt.emoji}</span>
-                      <div className="flex-1">
-                        <div className="flex justify-between mb-1">
-                          <span className="text-sm text-gray-700" style={{ fontWeight: 500 }}>{alt.name}</span>
-                          <span className="text-xs text-gray-400">{alt.confidence.toFixed(1)}%</span>
-                        </div>
-                        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#F3F4F6" }}>
-                          <motion.div className="h-full rounded-full" style={{ background: alt.color }}
-                            initial={{ width: "0%" }} animate={{ width: `${alt.confidence}%` }}
-                            transition={{ duration: 0.8, delay: 0.5 + i * 0.15, ease: "easeOut" }}
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
                 </div>
               </div>
 
