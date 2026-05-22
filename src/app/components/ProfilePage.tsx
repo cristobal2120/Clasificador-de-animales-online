@@ -1,12 +1,30 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { User, Mail, Calendar, ScanLine, Shield } from "lucide-react";
+import { User, Mail, Calendar, ScanLine, Shield, Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getLogs } from "../store/metricsStore";
 
+function RoleBadge({ role }: { role: "admin" | "user" }) {
+  const isAdmin = role === "admin";
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
+      style={{
+        fontWeight: 600,
+        background: isAdmin ? "rgba(79, 70, 229, 0.12)" : "var(--app-accent-soft)",
+        color: isAdmin ? "#4F46E5" : "#047857",
+        border: `1px solid ${isAdmin ? "rgba(79, 70, 229, 0.25)" : "rgba(5, 150, 105, 0.25)"}`,
+      }}
+    >
+      <Shield size={12} />
+      {isAdmin ? "Administrador" : "Usuario"}
+    </span>
+  );
+}
+
 export function ProfilePage() {
   const { user } = useAuth();
-  const [scanCount, setScanCount] = useState(0);
+  const [scanCount, setScanCount] = useState<number | null>(null);
 
   useEffect(() => {
     void getLogs().then((logs) => {
@@ -16,40 +34,18 @@ export function ProfilePage() {
 
   if (!user) return null;
 
-  const rows = [
-    { icon: <User size={16} />, label: "Usuario", value: user.username },
-    { icon: <Mail size={16} />, label: "Email", value: user.email },
-    { icon: <Calendar size={16} />, label: "Registro", value: new Date(user.createdAt).toLocaleDateString("es") },
-    { icon: <ScanLine size={16} />, label: "Escaneos", value: String(scanCount) },
-    { icon: <Shield size={16} />, label: "Rol", value: user.role },
+  const detailItems = [
+    { icon: User, label: "Usuario", value: user.username },
+    { icon: Mail, label: "Email", value: user.email },
+    { icon: Calendar, label: "Miembro desde", value: new Date(user.createdAt).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" }) },
   ];
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-lg mx-auto px-4 py-10"
+      className="max-w-3xl mx-auto px-4 sm:px-6 py-8 lg:py-10"
     >
-      <div
-        className="rounded-3xl p-8 text-center mb-6"
-        style={{
-          background: "var(--app-card-bg)",
-          border: "1px solid var(--app-card-border)",
-          boxShadow: "var(--app-card-shadow)",
-        }}
-      >
-        <div
-          className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center text-4xl"
-          style={{ background: "var(--layout-profile-avatar-bg)" }}
-        >
-          {user.avatar}
-        </div>
-        <h2 className="font-display text-xl mb-1" style={{ fontWeight: 700, color: "var(--app-text)" }}>
-          {user.username}
-        </h2>
-        <p className="text-sm" style={{ color: "var(--app-text-muted)" }}>{user.email}</p>
-      </div>
-
       <div
         className="rounded-3xl overflow-hidden"
         style={{
@@ -58,19 +54,115 @@ export function ProfilePage() {
           boxShadow: "var(--app-card-shadow)",
         }}
       >
-        {rows.map((row, i) => (
+        {/* Cabecera horizontal */}
+        <div
+          className="px-6 sm:px-8 py-6 sm:py-8 flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6"
+          style={{
+            background: "linear-gradient(135deg, var(--app-accent-soft) 0%, transparent 55%)",
+            borderBottom: "1px solid var(--layout-divider)",
+          }}
+        >
           <div
-            key={row.label}
-            className="flex items-center gap-3 px-5 py-4"
+            className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex items-center justify-center text-5xl shrink-0"
             style={{
-              borderBottom: i < rows.length - 1 ? "1px solid var(--layout-divider)" : undefined,
+              background: "var(--layout-profile-avatar-bg)",
+              border: "3px solid var(--app-surface-strong)",
+              boxShadow: "var(--app-card-shadow)",
             }}
           >
-            <span style={{ color: "var(--layout-nav-text-active)" }}>{row.icon}</span>
-            <span className="text-sm flex-1" style={{ color: "var(--app-text-muted)" }}>{row.label}</span>
-            <span className="text-sm" style={{ fontWeight: 600, color: "var(--app-text)" }}>{row.value}</span>
+            {user.avatar}
           </div>
-        ))}
+          <div className="flex-1 text-center sm:text-left min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-1">
+              <h2 className="font-display text-2xl truncate" style={{ fontWeight: 700, color: "var(--app-text)" }}>
+                {user.username}
+              </h2>
+              <RoleBadge role={user.role} />
+            </div>
+            <p className="text-sm truncate mb-3" style={{ color: "var(--app-text-muted)" }}>
+              {user.email}
+            </p>
+            <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs"
+                style={{
+                  background: "var(--app-surface-strong)",
+                  border: "1px solid var(--app-surface-border)",
+                  color: "var(--app-text-muted)",
+                  fontWeight: 500,
+                }}
+              >
+                <Sparkles size={12} style={{ color: "var(--layout-nav-text-active)" }} />
+                Cuenta activa
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Estadística destacada */}
+        <div className="px-6 sm:px-8 py-6" style={{ borderBottom: "1px solid var(--layout-divider)" }}>
+          <div
+            className="rounded-2xl p-5 flex items-center gap-4"
+            style={{
+              background: "var(--app-brand-gradient)",
+              boxShadow: "0 12px 32px -12px rgba(5, 150, 105, 0.45)",
+            }}
+          >
+            <div
+              className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: "rgba(255,255, 255, 0.2)" }}
+            >
+              <ScanLine size={28} color="white" strokeWidth={2} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-white/80 mb-0.5">Total de escaneos</p>
+              <p className="font-display text-3xl text-white" style={{ fontWeight: 800, lineHeight: 1.1 }}>
+                {scanCount === null ? "—" : scanCount}
+              </p>
+              <p className="text-xs text-white/70 mt-1">Registros guardados en Firestore</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Detalles en grid */}
+        <div className="px-6 sm:px-8 py-6">
+          <p
+            className="text-[10px] font-semibold uppercase tracking-[0.14em] mb-4"
+            style={{ color: "var(--layout-label)" }}
+          >
+            Detalles de la cuenta
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {detailItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.label}
+                  className="flex items-start gap-3 px-4 py-3.5 rounded-2xl"
+                  style={{
+                    background: "var(--layout-profile-bg)",
+                    border: "1px solid var(--layout-divider)",
+                  }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: "var(--app-surface-strong)", color: "var(--layout-nav-text-active)" }}
+                  >
+                    <Icon size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs mb-0.5" style={{ color: "var(--app-text-muted)" }}>
+                      {item.label}
+                    </p>
+                    <p className="text-sm truncate" style={{ fontWeight: 600, color: "var(--app-text)" }}>
+                      {item.value}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </motion.div>
   );

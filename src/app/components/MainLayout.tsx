@@ -65,6 +65,11 @@ export function MainLayout({ onLogout }: MainLayoutProps) {
     profile: "Mi perfil",
   };
 
+  const viewSubtitles: Record<ActiveView, string | null> = {
+    scanner: null,
+    profile: "Resumen de tu cuenta y actividad",
+  };
+
   const sidebarStyle = {
     background: "var(--layout-sidebar-bg)",
     backdropFilter: "blur(18px)",
@@ -132,6 +137,7 @@ export function MainLayout({ onLogout }: MainLayoutProps) {
                     background: active ? "var(--layout-nav-active-bg)" : "transparent",
                     border: active ? "1px solid var(--layout-nav-active-border)" : "1px solid transparent",
                     boxShadow: active ? "0 1px 2px rgba(15, 23, 42, 0.04)" : "none",
+                    borderLeft: active ? "3px solid var(--app-accent)" : "3px solid transparent",
                   }}
                 >
                   <div
@@ -298,6 +304,11 @@ export function MainLayout({ onLogout }: MainLayoutProps) {
                 <h2 className="font-display truncate text-base sm:text-lg" style={{ fontWeight: 700, color: "var(--layout-heading)" }}>
                   {viewTitles[activeView]}
                 </h2>
+                {viewSubtitles[activeView] && (
+                  <p className="text-xs truncate hidden md:block" style={{ color: "var(--layout-subheading)" }}>
+                    {viewSubtitles[activeView]}
+                  </p>
+                )}
               </div>
             </div>
             <button
