@@ -5,13 +5,15 @@ node_modules/
 dist/
 build/
 
-# Variables de entorno (secretos Firebase)
+# Variables de entorno locales (no subir)
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-# Sí sube .env.example como plantilla
+
+# Producción: .env.production sí va al repo (Vercel lo usa en el build)
+# .env.example = plantilla sin valores reales
 
 # Logs
 logs/
