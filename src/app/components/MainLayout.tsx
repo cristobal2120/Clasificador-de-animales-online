@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ScanLine, LogOut, Menu, X, Database, UserCircle, PawPrint, Sun, Moon } from "lucide-react";
+import { ScanLine, LogOut, Menu, X, Database, UserCircle, PawPrint, Sun, Moon, AlertTriangle } from "lucide-react";
+import { getUserInitials } from "../lib/uiHelpers";
 import { collection, getDocs, limit, query } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../lib/firebase";
@@ -182,15 +183,24 @@ export function MainLayout({ onLogout }: MainLayoutProps) {
           }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition-colors"
           style={{
-            background: activeView === "profile" ? "var(--layout-profile-bg)" : "var(--layout-profile-bg)",
-            border: "1px solid var(--layout-divider)",
+            background: "var(--layout-profile-bg)",
+            border:
+              activeView === "profile"
+                ? "1px solid var(--layout-nav-active-border)"
+                : "1px solid var(--layout-divider)",
+            boxShadow: activeView === "profile" ? "0 0 0 1px var(--app-accent-soft)" : "none",
           }}
         >
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
-            style={{ background: "var(--layout-profile-avatar-bg)" }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-xs shrink-0 font-display"
+            style={{
+              background: "var(--layout-profile-avatar-bg)",
+              color: "var(--layout-nav-text-active)",
+              fontWeight: 700,
+            }}
+            aria-hidden
           >
-            {user?.avatar || "👤"}
+            {user ? getUserInitials(user.username, user.email) : "?"}
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className="text-sm truncate" style={{ fontWeight: 600, color: "var(--layout-heading)" }}>
@@ -314,13 +324,33 @@ export function MainLayout({ onLogout }: MainLayoutProps) {
             <button
               type="button"
               onClick={() => setActiveView("profile")}
-              className="lg:hidden w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
-              style={{ background: "var(--layout-profile-avatar-bg)", border: "1px solid var(--layout-divider)" }}
+              className="lg:hidden w-10 h-10 rounded-xl flex items-center justify-center text-xs shrink-0 font-display"
+              style={{
+                background: "var(--layout-profile-avatar-bg)",
+                border: "1px solid var(--layout-divider)",
+                color: "var(--layout-nav-text-active)",
+                fontWeight: 700,
+              }}
               aria-label="Perfil"
             >
-              {user?.avatar || "👤"}
+              {user ? getUserInitials(user.username, user.email) : "?"}
             </button>
           </header>
+
+          {dbOnline === false && (
+            <div
+              className="flex items-center gap-2 px-4 lg:px-8 py-2.5 text-sm shrink-0"
+              style={{
+                background: "var(--app-error-bg)",
+                color: "var(--app-error-text)",
+                borderBottom: `1px solid var(--app-error-border)`,
+              }}
+              role="alert"
+            >
+              <AlertTriangle size={16} className="shrink-0" />
+              <span>No hay conexión con Firestore. Los escaneos no se guardarán hasta restablecer la conexión.</span>
+            </div>
+          )}
 
           <main className="flex-1 overflow-y-auto min-h-0">
             <AnimatePresence mode="wait">
@@ -335,13 +365,15 @@ export function MainLayout({ onLogout }: MainLayoutProps) {
                 {activeView === "scanner" && (
                   <AnimalScanner onScanComplete={() => setScanRefresh((n) => n + 1)} />
                 )}
-                {activeView === "profile" && <ProfilePage />}
+                {activeView === "profile" && (
+                  <ProfilePage onGoScanner={() => setActiveView("scanner")} />
+                )}
               </motion.div>
             </AnimatePresence>
           </main>
         </div>
       </div>
-      <AppFooter />
+      <AppFooter variant="minimal" />
     </div>
   );
 }

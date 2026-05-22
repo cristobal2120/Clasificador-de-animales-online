@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Upload, RefreshCw, CheckCircle2, Cpu, Clock, Wifi, MemoryStick, ChevronDown, Activity, PawPrint, Sparkles } from "lucide-react";
+import { Upload, RefreshCw, CheckCircle2, Cpu, Clock, Wifi, MemoryStick, ChevronDown, Activity, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
@@ -8,7 +8,9 @@ import { Badge } from "./ui/badge";
 import { useAuth } from "../context/AuthContext";
 import { addLog } from "../store/metricsStore";
 import { ScanLog } from "../types";
-import { getConfidenceColor, getConfidenceLabel } from "../lib/uiHelpers";
+import { getConfidenceColor, getConfidenceLabel, validateImageFile, MAX_IMAGE_BYTES } from "../lib/uiHelpers";
+
+const SPECIES_TAGS = ["🐕 Perro", "🐈 Gato", "🦁 León", "🐘 Elefante", "🦜 Pájaro", "🐬 Delfín", "🐼 Panda", "🦊 Zorro"];
 
 const ANIMAL_DATABASE = [
   { name: "Perro", emoji: "🐕", confidence: 94.7, color: "#F59E0B", category: "Mamífero doméstico", description: "Canis lupus familiaris" },
@@ -105,6 +107,7 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
   const [firestoreDocId, setFirestoreDocId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showMetricsDetail, setShowMetricsDetail] = useState(false);
+  const [showSpecies, setShowSpecies] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,7 +143,11 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
   }, []);
 
   const processImage = useCallback((file: File) => {
-    if (!file.type.startsWith("image/")) return;
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
     const url = URL.createObjectURL(file);
     setImageUrl(url);
     setCurrentFile(file);
@@ -270,6 +277,19 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
     }, chunkInterval);
   }, [user, onScanComplete, persistLog]);
 
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (phase !== "idle") return;
+      const file = e.clipboardData?.files?.[0];
+      if (file?.type.startsWith("image/")) {
+        e.preventDefault();
+        processImage(file);
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [phase, processImage]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processImage(file);
@@ -322,22 +342,7 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
   );
 
   return (
-    <div className="pb-10">
-      <div className="text-center pt-6 pb-4 px-4">
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <div className="inline-flex items-center gap-3 mb-2">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: "var(--app-brand-gradient)" }}>
-              <PawPrint size={22} color="white" />
-            </div>
-            <h1 className="font-display text-2xl" style={{ fontWeight: 700, color: "var(--app-text)" }}>Clasificador de animales</h1>
-          </div>
-          <p className="max-w-md mx-auto text-sm" style={{ color: "var(--app-text-muted)" }}>
-            Sube una foto y obtén identificación con métricas en tiempo real
-          </p>
-        </motion.div>
-      </div>
-
-      <div className="max-w-xl mx-auto px-4">
+    <div className="pb-10 max-w-2xl mx-auto px-4 sm:px-6 pt-4">
         {phase !== "idle" && <ScanStepper phase={phase} />}
         <AnimatePresence mode="wait">
 
@@ -345,17 +350,22 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
           {phase === "idle" && (
             <motion.div key="idle" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}>
               <div
-                className="rounded-3xl p-10 text-center cursor-pointer transition-all duration-300 border-2 border-dashed"
+                role="button"
+                tabIndex={0}
+                aria-label="Zona para subir imagen de animal. Arrastra, haz clic o pega desde el portapapeles."
+                className="rounded-3xl p-8 sm:p-10 text-center cursor-pointer transition-all duration-300 border-2 outline-none focus-visible:ring-2"
                 style={{
                   background: dragOver ? "var(--app-upload-well-bg)" : "var(--app-card-bg)",
-                  borderColor: dragOver ? "var(--app-card-border-drag)" : "var(--app-card-border)",
+                  borderColor: dragOver ? "var(--app-accent)" : "var(--app-card-border)",
+                  borderStyle: dragOver ? "solid" : "dashed",
                   backdropFilter: "blur(12px)",
-                  boxShadow: "var(--app-card-shadow)",
+                  boxShadow: dragOver ? "0 0 0 4px var(--app-accent-soft)" : "var(--app-card-shadow)",
                 }}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
               >
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                 <motion.div
@@ -368,7 +378,12 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                   </div>
                 </motion.div>
                 <h2 className="mb-2" style={{ fontSize: "1.3rem", fontWeight: 600, color: "var(--app-text)" }}>Sube tu imagen</h2>
-                <p className="mb-6 text-sm" style={{ color: "var(--app-text-muted)" }}>Arrastra y suelta o haz clic para seleccionar</p>
+                <p className="mb-2 text-sm" style={{ color: "var(--app-text-muted)" }}>
+                  Arrastra, haz clic o pega con Ctrl+V
+                </p>
+                <p className="mb-6 text-xs" style={{ color: "var(--layout-label)" }}>
+                  JPG, PNG, WEBP, GIF · máx. {MAX_IMAGE_BYTES / (1024 * 1024)} MB
+                </p>
                 <div className="flex flex-wrap gap-2 justify-center mb-6">
                   {["JPG", "PNG", "WEBP", "GIF"].map(f => (
                     <span key={f} className="px-3 py-1 rounded-full text-xs font-medium" style={{ background: "var(--app-chip-bg)", color: "var(--app-chip-text)", border: "1px solid var(--app-chip-border)" }}>{f}</span>
@@ -380,13 +395,33 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                 >
                   Seleccionar imagen
                 </Button>
-                <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--layout-divider)" }}>
-                  <p className="text-xs mb-3" style={{ color: "var(--app-text-muted)" }}>Animales identificables</p>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {["🐕 Perro", "🐈 Gato", "🦁 León", "🐘 Elefante", "🦜 Pájaro", "🐬 Delfín", "🐼 Panda", "🦊 Zorro"].map(a => (
-                      <span key={a} className="px-3 py-1 rounded-full text-xs" style={{ background: "var(--app-tag-bg)", color: "var(--app-tag-text)", border: "1px solid var(--app-tag-border)" }}>{a}</span>
-                    ))}
-                  </div>
+                <div className="mt-6 pt-5" style={{ borderTop: "1px solid var(--layout-divider)" }}>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowSpecies((v) => !v); }}
+                    className="w-full flex items-center justify-center gap-2 text-xs py-1 focus-visible:outline focus-visible:outline-2"
+                    style={{ color: "var(--app-text-muted)", fontWeight: 600 }}
+                    aria-expanded={showSpecies}
+                  >
+                    {showSpecies ? "Ocultar especies" : `Ver ${SPECIES_TAGS.length} especies soportadas`}
+                    <motion.span animate={{ rotate: showSpecies ? 180 : 0 }}><ChevronDown size={14} /></motion.span>
+                  </button>
+                  <AnimatePresence>
+                    {showSpecies && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="flex flex-wrap gap-2 justify-center mt-3">
+                          {SPECIES_TAGS.map((a) => (
+                            <span key={a} className="px-3 py-1 rounded-full text-xs" style={{ background: "var(--app-tag-bg)", color: "var(--app-tag-text)", border: "1px solid var(--app-tag-border)" }}>{a}</span>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </motion.div>
@@ -427,9 +462,9 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                     <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
                       <RefreshCw size={16} style={{ color: "#6366F1" }} />
                     </motion.div>
-                    <span className="text-sm text-gray-700" style={{ fontWeight: 600 }}>Subiendo en tiempo real...</span>
+                    <span className="text-sm" style={{ fontWeight: 600, color: "var(--app-text)" }}>Subiendo en tiempo real...</span>
                   </div>
-                  <span className="text-xs text-gray-400">{formatBytes(metrics.uploadedBytes)} / {formatBytes(metrics.totalBytes)}</span>
+                  <span className="text-xs" style={{ color: "var(--app-text-muted)" }}>{formatBytes(metrics.uploadedBytes)} / {formatBytes(metrics.totalBytes)}</span>
                 </div>
 
                 {/* Real-time metrics grid */}
@@ -439,10 +474,10 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                     { icon: <Clock size={14} />, label: "Tiempo", value: formatMs(metrics.elapsedMs), color: "#F59E0B" },
                     { icon: <Cpu size={14} />, label: "CPU", value: `${metrics.cpuUsage.toFixed(0)}%`, color: "#8B5CF6" },
                   ].map(m => (
-                    <div key={m.label} className="rounded-xl px-3 py-2 text-center" style={{ background: "#F8F9FF", border: "1px solid #EEF2FF" }}>
+                    <div key={m.label} className="rounded-xl px-3 py-2 text-center" style={{ background: "var(--app-metric-tile-bg)", border: "1px solid var(--app-metric-tile-border)" }}>
                       <div className="flex items-center justify-center gap-1 mb-1" style={{ color: m.color }}>
                         {m.icon}
-                        <span className="text-xs text-gray-400">{m.label}</span>
+                        <span className="text-xs" style={{ color: "var(--app-text-muted)" }}>{m.label}</span>
                       </div>
                       <p className="text-sm" style={{ color: m.color, fontWeight: 700 }}>{m.value}</p>
                     </div>
@@ -457,7 +492,7 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                 </div>
 
                 {/* Timeout warning */}
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E" }}>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--app-warning-bg)", border: "1px solid var(--app-warning-border)", color: "var(--app-warning-text)" }}>
                   <Clock size={13} />
                   <span>Tiempo límite: 10s · Transcurrido: {formatMs(metrics.elapsedMs)}</span>
                   <div className="flex-1 h-1 rounded-full overflow-hidden ml-1" style={{ background: "#FEF3C7" }}>
@@ -477,7 +512,7 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
           {phase === "scanning" && (
             <motion.div key="scanning" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="rounded-3xl p-6 text-center"
-              style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(10px)", boxShadow: "0 8px 40px rgba(99,102,241,0.12)" }}
+              style={{ background: "var(--app-card-bg)", backdropFilter: "blur(10px)", boxShadow: "var(--app-card-shadow)", border: "1px solid var(--app-card-border)" }}
             >
               <div className="relative w-full max-w-sm mx-auto mb-5 rounded-2xl overflow-hidden" style={{ aspectRatio: "4/3" }}>
                 {imageUrl && <img src={imageUrl} alt="Scanning" className="w-full h-full object-cover" />}
@@ -511,10 +546,10 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                 </div>
               </div>
               <motion.div animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1, repeat: Infinity }}>
-                <h3 style={{ color: "#059669", fontWeight: 700, fontSize: "1.1rem" }}>Analizando patrones...</h3>
+                <h3 style={{ color: "var(--app-success-text)", fontWeight: 700, fontSize: "1.1rem" }}>Analizando patrones...</h3>
               </motion.div>
-              <p className="text-gray-400 text-xs mt-1">Analizando patrones visuales...</p>
-              <div className="flex justify-center gap-5 mt-4 text-xs text-gray-400">
+              <p className="text-xs mt-1" style={{ color: "var(--app-text-muted)" }}>Analizando patrones visuales...</p>
+              <div className="flex justify-center gap-5 mt-4 text-xs" style={{ color: "var(--app-text-muted)" }}>
                 {["Forma", "Textura", "Color", "Patrones"].map((label, i) => (
                   <motion.div key={label} className="flex flex-col items-center gap-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.4 }}>
                     <motion.div className="w-2 h-2 rounded-full"
@@ -532,14 +567,14 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
           {phase === "timeout" && (
             <motion.div key="timeout" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
               className="rounded-3xl p-8 text-center space-y-4"
-              style={{ background: "rgba(255,255,255,0.93)", backdropFilter: "blur(10px)", boxShadow: "0 8px 40px rgba(239,68,68,0.12)" }}
+              style={{ background: "var(--app-card-bg)", backdropFilter: "blur(10px)", boxShadow: "var(--app-card-shadow)", border: "1px solid var(--app-card-border)" }}
             >
-              <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto" style={{ background: "#FEF2F2" }}>
-                <Clock size={36} style={{ color: "#EF4444" }} />
+              <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto" style={{ background: "var(--app-error-bg)" }}>
+                <Clock size={36} style={{ color: "var(--app-error-text)" }} />
               </div>
-              <h3 style={{ color: "#EF4444", fontWeight: 700, fontSize: "1.2rem" }}>Tiempo de espera agotado</h3>
-              <p className="text-gray-500 text-sm">El tiempo máximo de 10 segundos fue superado. El registro fue guardado en la base de datos.</p>
-              <div className="px-4 py-3 rounded-2xl text-sm" style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}>
+              <h3 style={{ color: "var(--app-error-text)", fontWeight: 700, fontSize: "1.2rem" }}>Tiempo de espera agotado</h3>
+              <p className="text-sm" style={{ color: "var(--app-text-muted)" }}>El tiempo máximo de 10 segundos fue superado. El registro fue guardado en la base de datos.</p>
+              <div className="px-4 py-3 rounded-2xl text-sm" style={{ background: "var(--app-error-bg)", color: "var(--app-error-text)", border: "1px solid var(--app-error-border)" }}>
                 ⏱ Tiempo de comunicación: {formatMs(scanMetrics.commMs)} · Estado: <strong>TIMEOUT</strong>
               </div>
               <Button onClick={handleReset} style={{ background: "var(--app-brand-gradient)", color: "white", border: "none", borderRadius: "12px" }}>
@@ -581,14 +616,14 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                 </div>
                 <div className="p-5">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-500 text-sm">Nivel de certeza</span>
-                    <Badge style={{ background: "#ECFDF5", color: "#059669", border: "1px solid #A7F3D0" }}>
+                    <span className="text-sm" style={{ color: "var(--app-text-muted)" }}>Nivel de certeza</span>
+                    <Badge style={{ background: "var(--app-success-bg)", color: "var(--app-success-text)", border: "1px solid var(--app-success-border)" }}>
                       {getConfidenceLabel(prediction.main.confidence)}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
-                      <div className="w-full h-3 rounded-full overflow-hidden" style={{ background: "#F3F4F6" }}>
+                      <div className="w-full h-3 rounded-full overflow-hidden" style={{ background: "var(--layout-muted-track)" }}>
                         <motion.div className="h-full rounded-full"
                           style={{ background: `linear-gradient(90deg, ${getConfidenceColor(prediction.main.confidence)}, ${getConfidenceColor(prediction.main.confidence)}99)` }}
                           initial={{ width: "0%" }} animate={{ width: `${prediction.main.confidence}%` }}
@@ -602,11 +637,11 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                       {prediction.main.confidence.toFixed(1)}%
                     </motion.span>
                   </div>
-                  <div className="mt-3 px-4 py-2.5 rounded-2xl flex items-center gap-3" style={{ background: "#F8FAFF", border: "1px solid #E8EEFF" }}>
+                  <div className="mt-3 px-4 py-2.5 rounded-2xl flex items-center gap-3" style={{ background: "var(--layout-profile-bg)", border: "1px solid var(--layout-divider)" }}>
                     <span className="text-xl">🏷️</span>
                     <div>
-                      <p className="text-xs text-gray-400">Categoría</p>
-                      <p className="text-gray-700 text-sm" style={{ fontWeight: 600 }}>{prediction.main.category}</p>
+                      <p className="text-xs" style={{ color: "var(--app-text-muted)" }}>Categoría</p>
+                      <p className="text-sm" style={{ fontWeight: 600, color: "var(--app-text)" }}>{prediction.main.category}</p>
                     </div>
                   </div>
                 </div>
@@ -616,18 +651,20 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
               {savedLog && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
                   className="rounded-3xl overflow-hidden"
-                  style={{ background: "rgba(255,255,255,0.88)", boxShadow: "0 4px 24px rgba(99,102,241,0.07)" }}
+                  style={{ background: "var(--app-card-bg)", boxShadow: "var(--app-card-shadow)", border: "1px solid var(--app-card-border)" }}
                 >
                   <button
+                    type="button"
                     onClick={() => setShowMetricsDetail(!showMetricsDetail)}
-                    className="w-full px-5 py-4 flex items-center justify-between"
+                    className="w-full px-5 py-4 flex items-center justify-between focus-visible:outline focus-visible:outline-2"
+                    aria-expanded={showMetricsDetail}
                   >
                     <div className="flex items-center gap-2">
-                      <Activity size={16} style={{ color: "#6366F1" }} />
-                      <span className="text-gray-700 text-sm" style={{ fontWeight: 600 }}>Métricas del escaneo</span>
+                      <Activity size={16} style={{ color: "var(--layout-nav-text-active)" }} />
+                      <span className="text-sm" style={{ fontWeight: 600, color: "var(--app-text)" }}>Métricas del escaneo</span>
                     </div>
                     <motion.div animate={{ rotate: showMetricsDetail ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                      <ChevronDown size={16} className="text-gray-400" />
+                      <ChevronDown size={16} style={{ color: "var(--app-text-muted)" }} />
                     </motion.div>
                   </button>
                   <AnimatePresence>
@@ -642,10 +679,10 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                             { icon: <Activity size={14} />, label: "Vel. Red", value: `${savedLog.networkSpeedKBps.toFixed(0)} KB/s`, color: "#10B981" },
                             { icon: <CheckCircle2 size={14} />, label: "Estado", value: savedLog.timedOut ? "TIMEOUT" : "OK", color: savedLog.timedOut ? "#EF4444" : "#10B981" },
                           ].map(m => (
-                            <div key={m.label} className="rounded-xl px-3 py-2.5" style={{ background: "#F8F9FF", border: "1px solid #EEF2FF" }}>
+                            <div key={m.label} className="rounded-xl px-3 py-2.5" style={{ background: "var(--app-metric-tile-bg)", border: "1px solid var(--app-metric-tile-border)" }}>
                               <div className="flex items-center gap-1.5 mb-1" style={{ color: m.color }}>
                                 {m.icon}
-                                <span className="text-xs text-gray-400">{m.label}</span>
+                                <span className="text-xs" style={{ color: "var(--app-text-muted)" }}>{m.label}</span>
                               </div>
                               <p className="text-sm" style={{ color: m.color, fontWeight: 700 }}>{m.value}</p>
                             </div>
@@ -653,15 +690,15 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
                         </div>
                         <div className="px-5 pb-4">
                           {saveError ? (
-                            <div className="px-3 py-2 rounded-xl text-xs text-center" style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}>
+                            <div className="px-3 py-2 rounded-xl text-xs text-center" style={{ background: "var(--app-error-bg)", color: "var(--app-error-text)", border: "1px solid var(--app-error-border)" }}>
                               No se guardó en Firestore: {saveError}
                             </div>
                           ) : firestoreDocId ? (
-                            <div className="px-3 py-2 rounded-xl text-xs text-center" style={{ background: "#ECFDF5", color: "#059669", border: "1px solid #A7F3D0" }}>
+                            <div className="px-3 py-2 rounded-xl text-xs text-center" style={{ background: "var(--app-success-bg)", color: "var(--app-success-text)", border: "1px solid var(--app-success-border)" }}>
                               Registro guardado en Firestore · ID: {firestoreDocId}
                             </div>
                           ) : (
-                            <div className="px-3 py-2 rounded-xl text-xs text-center text-gray-500" style={{ background: "#F3F4F6", border: "1px solid #E5E7EB" }}>
+                            <div className="px-3 py-2 rounded-xl text-xs text-center" style={{ background: "var(--layout-profile-bg)", border: "1px solid var(--layout-divider)", color: "var(--app-text-muted)" }}>
                               Guardando en Firestore…
                             </div>
                           )}
@@ -682,7 +719,6 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
           )}
 
         </AnimatePresence>
-      </div>
     </div>
   );
 }
