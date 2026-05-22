@@ -33,7 +33,7 @@ export default defineConfig({
 
   build: {
     // Bundle ~820 kB (React, Firebase, UI libs); evita aviso por defecto de 500 kB
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1500,
   },
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.

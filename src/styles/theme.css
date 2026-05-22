@@ -50,7 +50,9 @@
       #ECEEF3 72%,
       #F7F8FA 100%
     );
-  --app-brand-gradient: linear-gradient(135deg, #3730A3 0%, #4F46E5 45%, #5B64D4 100%);
+  --app-brand-gradient: linear-gradient(135deg, #047857 0%, #059669 38%, #4F46E5 100%);
+  --app-accent: #059669;
+  --app-accent-soft: rgba(5, 150, 105, 0.12);
   --app-surface: rgba(255, 255, 255, 0.78);
   --app-surface-strong: rgba(255, 255, 255, 0.94);
   --app-surface-border: rgba(15, 23, 42, 0.09);
@@ -65,7 +67,7 @@
   --layout-nav-active-bg: rgba(67, 56, 202, 0.08);
   --layout-nav-active-border: rgba(67, 56, 202, 0.18);
   --layout-nav-text: #5C6570;
-  --layout-nav-text-active: #312E81;
+  --layout-nav-text-active: #047857;
   --layout-heading: #0F172A;
   --layout-subheading: #64748B;
   --layout-label: #94A3B8;
@@ -240,6 +242,19 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 
   /**

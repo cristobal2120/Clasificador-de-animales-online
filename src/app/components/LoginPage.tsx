@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Eye, EyeOff, LogIn, UserPlus, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus, AlertCircle, Mail, User, Lock, PawPrint } from "lucide-react";
+import { AppFooter } from "./AppFooter";
 import { Button } from "./ui/button";
 import { useAuth } from "../context/AuthContext";
 import { login, register } from "../store/authStore";
@@ -85,9 +86,10 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center px-4"
+      className="min-h-screen flex flex-col"
       style={{ background: "var(--app-bg-gradient)" }}
     >
+      <div className="flex-1 flex items-center justify-center px-4 py-8">
       <div className="fixed top-4 right-4 z-50">
         <button
           onClick={toggleTheme}
@@ -133,13 +135,13 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
                 boxShadow: "0 10px 28px -10px rgba(15, 23, 42, 0.2)",
               }}
             >
-              <span className="text-3xl">🔬</span>
+              <PawPrint size={28} color="white" />
             </div>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--app-text)" }}>
-              Animal Scanner
+            <h1 className="font-display" style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--app-text)" }}>
+              Clasificador de animales
             </h1>
           </motion.div>
-          <p className="text-sm" style={{ color: "var(--app-text-muted)" }}>Identificación de animales a partir de fotos</p>
+          <p className="text-sm" style={{ color: "var(--app-text-muted)" }}>Identificación inteligente a partir de fotos</p>
         </div>
 
         {/* Card */}
@@ -211,13 +213,16 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
                   {/* Username */}
                   <div>
                     <label className="text-sm mb-1 block" style={{ color: "var(--app-text-muted)" }}>Usuario</label>
-                    <input
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="tu_usuario"
-                      className={inputClass}
-                      style={inputStyle}
-                    />
+                    <div className="relative">
+                      <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--app-text-muted)" }} />
+                      <input
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="tu_usuario"
+                        className={inputClass}
+                        style={{ ...inputStyle, paddingLeft: "2.5rem" }}
+                      />
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -228,27 +233,31 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
               <label className="text-sm mb-1 block" style={{ color: "var(--app-text-muted)" }}>
                 Email
               </label>
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={mode === "login" ? "admin@animalscan.ai" : "tu@email.com"}
-                type="email"
-                className={inputClass}
-                style={inputStyle}
-              />
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--app-text-muted)" }} />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={mode === "login" ? "tu@email.com" : "tu@email.com"}
+                  type="email"
+                  className={inputClass}
+                  style={{ ...inputStyle, paddingLeft: "2.5rem" }}
+                />
+              </div>
             </div>
 
             {/* Password */}
             <div>
               <label className="text-sm mb-1 block" style={{ color: "var(--app-text-muted)" }}>Contraseña</label>
               <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--app-text-muted)" }} />
                 <input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   className={inputClass}
-                  style={{ ...inputStyle, paddingRight: "48px" }}
+                  style={{ ...inputStyle, paddingLeft: "2.5rem", paddingRight: "48px" }}
                 />
                 <button
                   type="button"
@@ -319,6 +328,8 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
           </form>
         </div>
       </motion.div>
+      </div>
+      <AppFooter />
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Upload, RefreshCw, CheckCircle2, Cpu, Clock, Wifi, MemoryStick, ChevronDown, Activity } from "lucide-react";
+import { Upload, RefreshCw, CheckCircle2, Cpu, Clock, Wifi, MemoryStick, ChevronDown, Activity, PawPrint, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
 import { useAuth } from "../context/AuthContext";
 import { addLog } from "../store/metricsStore";
 import { ScanLog } from "../types";
+import { getConfidenceColor, getConfidenceLabel } from "../lib/uiHelpers";
 
 const ANIMAL_DATABASE = [
   { name: "Perro", emoji: "🐕", confidence: 94.7, color: "#F59E0B", category: "Mamífero doméstico", description: "Canis lupus familiaris" },
@@ -35,6 +37,43 @@ function simulatePrediction() {
 }
 
 type ScanPhase = "idle" | "uploading" | "scanning" | "result" | "timeout";
+
+const PHASE_STEPS: { id: ScanPhase; label: string }[] = [
+  { id: "uploading", label: "Subiendo" },
+  { id: "scanning", label: "Analizando" },
+  { id: "result", label: "Resultado" },
+];
+
+function ScanStepper({ phase }: { phase: ScanPhase }) {
+  const order: ScanPhase[] = ["uploading", "scanning", "result"];
+  const current = phase === "timeout" ? 2 : order.indexOf(phase);
+
+  return (
+    <div className="flex items-center justify-center gap-2 mb-6 px-2">
+      {PHASE_STEPS.map((step, i) => {
+        const done = current > i;
+        const active = current === i;
+        return (
+          <div key={step.id} className="flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
+              style={{
+                background: done || active ? "var(--app-brand-gradient)" : "var(--layout-muted-track)",
+                color: done || active ? "white" : "var(--app-text-muted)",
+              }}
+            >
+              {done ? "✓" : i + 1}
+            </div>
+            <span className="text-xs hidden sm:inline" style={{ fontWeight: active ? 600 : 500, color: active ? "var(--app-text)" : "var(--app-text-muted)" }}>
+              {step.label}
+            </span>
+            {i < 2 && <div className="w-6 h-0.5 rounded" style={{ background: done ? "var(--app-accent)" : "var(--layout-muted-track)" }} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface UploadMetrics {
   uploadProgress: number;
@@ -89,11 +128,13 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
     try {
       const docId = await addLog(log);
       setFirestoreDocId(docId);
+      toast.success("Escaneo guardado en Firestore");
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "No se pudo guardar en Firestore";
       console.error("[Firestore] persistLog failed", e);
       setSaveError(msg);
+      toast.error("No se guardó en la base de datos");
       return false;
     }
   }, []);
@@ -254,19 +295,6 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const getConfidenceColor = (conf: number) => {
-    if (conf >= 85) return "#10B981";
-    if (conf >= 60) return "#F59E0B";
-    return "#EF4444";
-  };
-
-  const getConfidenceLabel = (conf: number) => {
-    if (conf >= 90) return "Muy alto";
-    if (conf >= 75) return "Alto";
-    if (conf >= 50) return "Moderado";
-    return "Bajo";
-  };
-
   const formatBytes = (b: number) => {
     if (b < 1024) return `${b.toFixed(0)} B`;
     if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
@@ -294,24 +322,23 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--app-bg-gradient)" }}>
-      {/* Header */}
-      <div className="text-center pt-8 pb-6 px-4">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+    <div className="pb-10">
+      <div className="text-center pt-6 pb-4 px-4">
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <div className="inline-flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md" style={{ background: "var(--app-brand-gradient)" }}>
-              <span className="text-2xl">🔬</span>
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: "var(--app-brand-gradient)" }}>
+              <PawPrint size={22} color="white" />
             </div>
-            <h1 className="text-[2rem]" style={{ fontWeight: 700, color: "var(--app-text)" }}>Animal Scanner</h1>
+            <h1 className="font-display text-2xl" style={{ fontWeight: 700, color: "var(--app-text)" }}>Clasificador de animales</h1>
           </div>
           <p className="max-w-md mx-auto text-sm" style={{ color: "var(--app-text-muted)" }}>
-            Sube una foto de cualquier animal y lo identificamos al instante
+            Sube una foto y obtén identificación con métricas en tiempo real
           </p>
         </motion.div>
       </div>
 
-      {/* Main Card */}
-      <div className="max-w-xl mx-auto px-4 pb-12">
+      <div className="max-w-xl mx-auto px-4">
+        {phase !== "idle" && <ScanStepper phase={phase} />}
         <AnimatePresence mode="wait">
 
           {/* IDLE */}
@@ -369,7 +396,7 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
           {phase === "uploading" && (
             <motion.div key="uploading" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="rounded-3xl overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.93)", backdropFilter: "blur(10px)", boxShadow: "0 8px 40px rgba(99,102,241,0.1)" }}
+              style={{ background: "var(--app-card-bg)", backdropFilter: "blur(10px)", boxShadow: "var(--app-card-shadow)", border: "1px solid var(--app-card-border)" }}
             >
               {/* Image preview */}
               <div className="relative w-full" style={{ height: 200 }}>
@@ -515,7 +542,7 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
               <div className="px-4 py-3 rounded-2xl text-sm" style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}>
                 ⏱ Tiempo de comunicación: {formatMs(scanMetrics.commMs)} · Estado: <strong>TIMEOUT</strong>
               </div>
-              <Button onClick={handleReset} style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)", color: "white", border: "none", borderRadius: "12px" }}>
+              <Button onClick={handleReset} style={{ background: "var(--app-brand-gradient)", color: "white", border: "none", borderRadius: "12px" }}>
                 Intentar de nuevo
               </Button>
             </motion.div>
@@ -526,12 +553,18 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
             <motion.div key="result" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5 }} className="space-y-4">
 
               {/* Main result */}
-              <div className="rounded-3xl overflow-hidden" style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(10px)", boxShadow: "0 8px 40px rgba(99,102,241,0.12)" }}>
-                <div className="relative w-full" style={{ maxHeight: 280 }}>
-                  <img src={imageUrl!} alt="Result" className="w-full object-cover" style={{ maxHeight: 280 }} />
+              <div className="rounded-3xl overflow-hidden" style={{ background: "var(--app-card-bg)", backdropFilter: "blur(10px)", boxShadow: "var(--app-card-shadow)", border: "1px solid var(--app-card-border)" }}>
+                <div className="relative w-full mx-auto max-w-full" style={{ maxHeight: 280, boxShadow: "inset 0 0 0 3px var(--app-accent-soft)" }}>
+                  <img src={imageUrl!} alt="Resultado del escaneo" className="w-full object-cover" style={{ maxHeight: 280 }} />
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)" }} />
-                  <div className="absolute top-4 right-4">
-                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+                  <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
+                      style={{ background: "rgba(255,255,255,0.95)", color: "#4F46E5", fontWeight: 600 }}
+                    >
+                      <Sparkles size={14} /> Análisis IA
+                    </motion.div>
+                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.35, type: "spring", stiffness: 200 }}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
                       style={{ background: "rgba(255,255,255,0.95)", color: "#059669", fontWeight: 600 }}
                     >
@@ -640,7 +673,7 @@ export function AnimalScanner({ onScanComplete }: ScannerProps) {
               )}
 
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-center">
-                <Button onClick={handleReset} className="px-8 py-3 rounded-2xl" style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)", color: "white", border: "none" }}>
+                <Button onClick={handleReset} className="px-8 py-3 rounded-2xl" style={{ background: "var(--app-brand-gradient)", color: "white", border: "none" }}>
                   <RefreshCw size={16} className="mr-2" />
                   Escanear otra imagen
                 </Button>
